@@ -5,6 +5,7 @@ package hash
 
 import (
 	"encoding/base64"
+	"fmt"
 	"hash"
 	"io"
 )
@@ -49,4 +50,14 @@ func (hw HashingWriter) Base64Sum() string {
 func (hw *HashingWriter) Write(data []byte) (int, error) {
 	// No trace because some callers, like ioutil.ReadAll(), won't work.
 	return hw.wrapped.Write(data)
+}
+
+func (hw *HashingWriter) Hash() string {
+	raw := hw.hash.Sum(nil)
+	return base64.StdEncoding.EncodeToString(raw)
+}
+
+func (hw *HashingWriter) RawHash() string {
+	raw := hw.hash.Sum(nil)
+	return fmt.Sprintf("%x", raw)
 }
