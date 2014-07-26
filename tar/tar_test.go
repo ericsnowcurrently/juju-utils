@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
-package tar
+package tar_test
 
 import (
 	"archive/tar"
@@ -14,15 +14,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-)
 
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
+	tarutil "github.com/juju/utils/tar"
+)
 
 var _ = gc.Suite(&TarSuite{})
 
@@ -191,12 +188,11 @@ func shaSumFile(c *gc.C, fileToSum io.Reader) string {
 	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
 }
 
-// Tar
 func (t *TarSuite) TestTarFiles(c *gc.C) {
 	t.createTestFiles(c)
 	var outputTar bytes.Buffer
 	trimPath := fmt.Sprintf("%s/", t.cwd)
-	shaSum, err := TarFiles(t.testFiles, &outputTar, trimPath)
+	shaSum, err := tarutil.TarFiles(t.testFiles, &outputTar, trimPath)
 	c.Check(err, gc.IsNil)
 	outputBytes := outputTar.Bytes()
 	fileShaSum := shaSumFile(c, bytes.NewBuffer(outputBytes))
@@ -217,7 +213,7 @@ func (t *TarSuite) TestSymlinksTar(c *gc.C) {
 
 	var outputTar bytes.Buffer
 	trimPath := fmt.Sprintf("%s/", t.cwd)
-	_, err = TarFiles(testFiles, &outputTar, trimPath)
+	_, err = tarutil.TarFiles(testFiles, &outputTar, trimPath)
 	c.Check(err, gc.IsNil)
 
 	outputBytes := outputTar.Bytes()
@@ -239,12 +235,11 @@ func (t *TarSuite) TestSymlinksTar(c *gc.C) {
 
 }
 
-// UnTar
 func (t *TarSuite) TestUnTarFilesUncompressed(c *gc.C) {
 	t.createTestFiles(c)
 	var outputTar bytes.Buffer
 	trimPath := fmt.Sprintf("%s/", t.cwd)
-	_, err := TarFiles(t.testFiles, &outputTar, trimPath)
+	_, err := tarutil.TarFiles(t.testFiles, &outputTar, trimPath)
 	c.Check(err, gc.IsNil)
 	t.removeTestFiles(c)
 
@@ -252,7 +247,7 @@ func (t *TarSuite) TestUnTarFilesUncompressed(c *gc.C) {
 	err = os.Mkdir(outputDir, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
 
-	UntarFiles(&outputTar, outputDir)
+	tarutil.UntarFiles(&outputTar, outputDir)
 	t.assertFilesWhereUntared(c, testExpectedTarContents, outputDir)
 }
 
@@ -260,11 +255,11 @@ func (t *TarSuite) TestFindFileFound(c *gc.C) {
 	t.createTestFiles(c)
 	var outputTar bytes.Buffer
 	trimPath := fmt.Sprintf("%s/", t.cwd)
-	_, err := TarFiles(t.testFiles, &outputTar, trimPath)
+	_, err := tarutil.TarFiles(t.testFiles, &outputTar, trimPath)
 	c.Assert(err, gc.IsNil)
 	t.removeTestFiles(c)
 
-	_, file, err := FindFile(&outputTar, "TarDirectoryPopulated/TarSubFile1")
+	_, file, err := tarutil.FindFile(&outputTar, "TarDirectoryPopulated/TarSubFile1")
 	c.Assert(err, gc.IsNil)
 
 	data, err := ioutil.ReadAll(file)
@@ -277,11 +272,11 @@ func (t *TarSuite) TestFindFileNotFound(c *gc.C) {
 	t.createTestFiles(c)
 	var outputTar bytes.Buffer
 	trimPath := fmt.Sprintf("%s/", t.cwd)
-	_, err := TarFiles(t.testFiles, &outputTar, trimPath)
+	_, err := tarutil.TarFiles(t.testFiles, &outputTar, trimPath)
 	c.Assert(err, gc.IsNil)
 	t.removeTestFiles(c)
 
-	_, _, err = FindFile(&outputTar, "does_not_exist")
+	_, _, err = tarutil.FindFile(&outputTar, "does_not_exist")
 
 	c.Check(err, gc.ErrorMatches, "does_not_exist not found")
 }
@@ -297,7 +292,7 @@ func (t *TarSuite) TestUntarFilesHeadersIgnored(c *gc.C) {
 	err = w.Flush()
 	c.Assert(err, gc.IsNil)
 
-	err = UntarFiles(&buf, t.cwd)
+	err = tarutil.UntarFiles(&buf, t.cwd)
 	err = filepath.Walk(t.cwd, func(path string, finfo os.FileInfo, err error) error {
 		if path != t.cwd {
 			return fmt.Errorf("unexpected file: %v", path)

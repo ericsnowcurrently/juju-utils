@@ -8,16 +8,14 @@ package tar
 
 import (
 	"archive/tar"
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/utils/hash"
 	"github.com/juju/utils/symlink"
 )
 
@@ -51,90 +49,18 @@ func FindFile(tarFile io.Reader, filename string) (*tar.Header, io.Reader, error
 // We use a base64 encoded sha1 hash, because this is the hash
 // used by RFC 3230 Digest headers in http responses
 func TarFiles(fileList []string, target io.Writer, strip string) (shaSum string, err error) {
-	shahash := sha1.New()
-	if err := tarAndHashFiles(fileList, target, strip, shahash); err != nil {
+	proxy := hash.NewSHA1Proxy(target)
+	ar := Archiver{fileList, strip}
+
+	err = ar.Write(proxy)
+	if err != nil {
 		return "", err
 	}
-	encodedHash := base64.StdEncoding.EncodeToString(shahash.Sum(nil))
-	return encodedHash, nil
+
+	return proxy.Base64Sum(), nil
 }
 
-func tarAndHashFiles(fileList []string, target io.Writer, strip string, hashw io.Writer) (err error) {
-	checkClose := func(w io.Closer) {
-		if closeErr := w.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing tar writer: %v", closeErr)
-		}
-	}
-
-	w := io.MultiWriter(target, hashw)
-	tarw := tar.NewWriter(w)
-	defer checkClose(tarw)
-	for _, ent := range fileList {
-		if err := writeContents(ent, strip, tarw); err != nil {
-			return fmt.Errorf("write to tar file failed: %v", err)
-		}
-	}
-	return nil
-}
-
-// writeContents creates an entry for the given file
-// or directory in the given tar archive.
-func writeContents(fileName, strip string, tarw *tar.Writer) error {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	fInfo, err := os.Lstat(fileName)
-	if err != nil {
-		return err
-	}
-	link := ""
-
-	if fInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
-		link, err = filepath.EvalSymlinks(fileName)
-
-		if err != nil {
-			return fmt.Errorf("cannnot dereference symlink: %v", err)
-		}
-
-	}
-	h, err := tar.FileInfoHeader(fInfo, link)
-	if err != nil {
-		return fmt.Errorf("cannot create tar header for %q: %v", fileName, err)
-	}
-	h.Name = filepath.ToSlash(strings.TrimPrefix(fileName, strip))
-	if err := tarw.WriteHeader(h); err != nil {
-		return fmt.Errorf("cannot write header for %q: %v", fileName, err)
-	}
-	if fInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
-		return nil
-	}
-	if !fInfo.IsDir() {
-		if _, err := io.Copy(tarw, f); err != nil {
-			return fmt.Errorf("failed to write %q: %v", fileName, err)
-		}
-		return nil
-	}
-
-	for {
-		names, err := f.Readdirnames(100)
-		// will return at most 100 names and if less than 100 remaining
-		// next call will return io.EOF and no names
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("error reading directory %q: %v", fileName, err)
-		}
-		for _, name := range names {
-			if err := writeContents(filepath.Join(fileName, name), strip, tarw); err != nil {
-				return err
-			}
-		}
-	}
-
-}
+// TODO(ericsnow) Move createAndFill down (below UntarFiles).
 
 func createAndFill(filePath string, mode int64, content io.Reader) error {
 	fh, err := os.Create(filePath)
