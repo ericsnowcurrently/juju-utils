@@ -16,16 +16,19 @@ import (
 var sep = string(os.PathSeparator)
 
 //---------------------------
-// Archiver
+// Archive
 
-//Archiver is used to create a tar file.
-type Archiver struct {
-	Files       []string
-	StripPrefix string
+//Archive identifies the files in a single tar archive.
+type Archive struct {
+	// Files identifies each file in the archive by relative path.
+	Files []string
+
+	// Root is the path to the root directory of the archive.
+	Root string
 }
 
 // Write writes out the archive data for the files/directory-trees.
-func (a *Archiver) Write(w io.Writer) (err error) {
+func (a *Archive) Write(w io.Writer) (err error) {
 	checkClose := func(w io.Closer) {
 		if closeErr := w.Close(); closeErr != nil && err == nil {
 			err = fmt.Errorf("error closing archive file: %v", closeErr)
@@ -44,7 +47,7 @@ func (a *Archiver) Write(w io.Writer) (err error) {
 	return nil
 }
 
-func (a *Archiver) WriteGzipped(w io.Writer) (err error) {
+func (a *Archive) WriteGzipped(w io.Writer) (err error) {
 	checkClose := func(w io.Closer) {
 		if closeErr := w.Close(); closeErr != nil && err == nil {
 			err = fmt.Errorf("error closing archive file: %v", closeErr)
@@ -57,7 +60,7 @@ func (a *Archiver) WriteGzipped(w io.Writer) (err error) {
 	return a.Write(gzw)
 }
 
-func (a *Archiver) Create(filename string) (err error) {
+func (a *Archive) Create(filename string) (err error) {
 	checkClose := func(w io.Closer) {
 		if closeErr := w.Close(); closeErr != nil && err == nil {
 			err = fmt.Errorf("error closing archive file: %v", closeErr)
@@ -77,13 +80,101 @@ func (a *Archiver) Create(filename string) (err error) {
 
 // writeTree creates an entry for the given file
 // or directory in the given tar archive.
-func (a *Archiver) writeTree(fileName string, tarw *tar.Writer) error {
+func (a *Archive) writeTree(fileName string, tarw *tar.Writer) error {
+
 	// Open and inspect the file.
 	f, err := os.Open(fileName)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+}
+
+//---------------------------
+// Archiver
+
+type Archiver struct {
+	tarw *tar.Writer
+}
+
+func NewArchiver(tarfile io.Writer) *Archiver {
+	ar := Archiver{
+		tarw: tar.NewWriter(tarfile),
+	}
+	return &ar
+}
+
+// Add creates an entry for the given file/dir in the archive.
+func (a *Archiver) Add(path, root string) (string, error) {
+	name, info, file, err := a.open(path, root)
+	if err != nil {
+		return "", err
+	}
+
+	if info.IsDir() {
+		name, err = a.addDirRaw(name, info, file, path)
+	} else {
+		name, err = a.AddFileRaw(name, info, file)
+	}
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// WriteFile creates an entry for the given file in the archive.
+func (a *Archiver) AddTree(dirname, root string) error {
+}
+
+// AddFileRaw creates an entry for the given "file" in the archive.
+func (a *Archiver) AddFileRaw(name string, info os.FileInfo, data io.Reader) (string, error) {
+	hdr, err := a.writeHeader(name, info)
+	if err != nil {
+		return "", err
+	}
+
+	_, err := io.Copy(a.tarw, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to write %q: %v", filename, err)
+	}
+
+	return hdr.Name, nil
+}
+
+func (a *Archiver) open(path, root string) (string, *os.File, *os.FileInfo, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	name := strings.TrimPrefix(path, root)
+	return name, info, file, err
+}
+
+func (a *Archiver) writeHeader(filename string, info os.FileInfo) (*tar.Header, error) {
+	hdr, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		return "", fmt.Errorf("could not create tar header for %q: %v", filename, err)
+	}
+	hdr.Name = filepath.ToSlash(filename)
+
+	// Write out the header.
+	if err := a.tarw.WriteHeader(hdr); err != nil {
+		return "", fmt.Errorf("could not write header for %q: %v", filename, err)
+	}
+
+	return hdr, nil
+}
+
+// writeTree creates an entry for the given file
+// or directory in the given tar archive.
+func (a *Archiver) WriteTree(fileName string, tarw *tar.Writer) error {
 	fInfo, err := f.Stat()
 	if err != nil {
 		return err
@@ -111,7 +202,7 @@ func (a *Archiver) writeTree(fileName string, tarw *tar.Writer) error {
 	return nil
 }
 
-func (a *Archiver) writeDir(dirname string, f *os.File, tarw *tar.Writer) error {
+func (a *Archive) writeDir(dirname string, f *os.File, tarw *tar.Writer) error {
 	if !strings.HasSuffix(dirname, sep) {
 		dirname += sep
 	}
@@ -133,3 +224,12 @@ func (a *Archiver) writeDir(dirname string, f *os.File, tarw *tar.Writer) error 
 	}
 	return nil
 }
+
+//---------------------------
+// UnArchiver
+
+type UnArchiver struct {
+	tarr *tar.Reader
+}
+
+//...
