@@ -114,3 +114,52 @@ func createAndFill(filePath string, mode int64, content io.Reader) error {
 	}
 	return nil
 }
+
+// Iter is an iterator of the entries in a tar file.
+type Iter struct {
+	reader *tar.Reader
+	done   bool
+	err    error
+}
+
+// IterTarFile returns a new tarfile iterator wrapping tarfile.
+func IterTarFile(tarfile io.Reader) *Iter {
+	iter := Iter{
+		reader: tar.NewReader(tarfile),
+	}
+	return &iter
+}
+
+func (it *Iter) Done() bool {
+	return it.done
+}
+
+func (it *Iter) Err() error {
+	return it.err
+}
+
+// Next populates header with the next value and returns true.  If there
+// are no more values or there is an error, it returns false.  In the
+// case that an error is encounterd, the error is stored on the struct.
+func (it *Iter) Next(header *tar.Header, data io.Reader) bool {
+	if it.done {
+		return false
+	}
+
+	// Advance to the next entry.
+	hdr, err := it.reader.Next()
+	if err == io.EOF {
+		// end of archive
+		it.done = true
+		return false
+	}
+	if err != nil {
+		it.err = err
+		it.done = true
+		return false
+	}
+
+	*entry = *hdr
+	*data = *it.reader
+	return true
+}

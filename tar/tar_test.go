@@ -171,6 +171,53 @@ func (t *TarSuite) TestUntarFilesHeadersIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (t *TarSuite) TestIterNextValue(c *gc.C) {
+	tarfile := newMemTarfile("spam", "eggs")
+	it := tarutil.IterTarFile(tarfile)
+
+	var entry *tar.Header
+	for it.Next(entry, nil) {
+		break
+	}
+
+	c.Check(it.Done(), gc.Equals, false)
+	c.Check(it.Err(), gc.IsNil)
+	c.Check(entry.Name, gc.Equals, "")
+}
+
+func (t *TarSuite) TestIterNextDone(c *gc.C) {
+	stub := &testing.Stub{}
+	tarfile, buf := newStubWriter(stub)
+	stub.SetErrors(io.EOF)
+	it := tarutil.IterTarFile(tarfile)
+
+	var entry *tar.Header
+	alive := it.Next(entry, nil)
+
+	stub.CheckCallNames(c, "Write")
+	c.Check(alive, gc.Equals, false)
+	c.Check(it.Done(), gc.Equals, true)
+	c.Check(it.Err(), gc.IsNil)
+	c.Check(entry, gc.IsNil)
+}
+
+func (t *TarSuite) TestIterNextError(c *gc.C) {
+	stub := &testing.Stub{}
+	tarfile, buf := newStubWriter(stub)
+	failure := errors.New("<failure>")
+	stub.SetErrors(failure)
+	it := tarutil.IterTarFile(tarfile)
+
+	var entry *tar.Header
+	alive := it.Next(entry, nil)
+
+	stub.CheckCallNames(c, "Write")
+	c.Check(alive, gc.Equals, false)
+	c.Check(it.Done(), gc.Equals, true)
+	c.Check(errors.Cause(it.Err()), gc.Equals, failure)
+	c.Check(entry, gc.IsNil)
+}
+
 var testExpectedTarContents = expectedTarContents{
 	{"TarDirectoryEmpty", ""},
 	{"TarDirectoryPopulated", ""},
@@ -180,4 +227,17 @@ var testExpectedTarContents = expectedTarContents{
 	{"TarDirectoryPopulated/TarDirectoryPopulatedSubDirectory", ""},
 	{"TarFile1", "TarFile1"},
 	{"TarFile2", "TarFile2"},
+}
+
+func newMemTarfile(filename, data string) io.Reader {
+	file := bytes.NewBufferString(data)
+}
+
+func newStubWriter(stub *testing.Stub) (*filetesting.StubWriter, *bytes.Buffer) {
+	buf := new(bytes.Buffer)
+	writer := &filetesting.StubWriter{
+		Stub:        stub,
+		ReturnWrite: buf,
+	}
+	return writer, buf
 }
