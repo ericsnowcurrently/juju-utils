@@ -35,7 +35,7 @@ type Metadata interface {
 }
 
 // Ensure FileMetadata implements Metadata.
-var _ = Metadata(&FileMetadata{})
+var _ = Metadata((*FileMetadata)(nil))
 
 // FileMetadata contains the metadata for a single stored file.
 type FileMetadata struct {
