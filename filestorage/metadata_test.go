@@ -37,6 +37,31 @@ func (s *MetadataSuite) TestFileMetadataNewMetadataDefaultTimestamp(c *gc.C) {
 	c.Check(meta.Timestamp(), gc.NotNil)
 }
 
+func (s *MetadataSuite) TestFileMetadataCheckCompleteOkay(c *gc.C) {
+	meta := filestorage.NewMetadata(nil)
+	meta.SetID("abcd")
+	meta.SetFile(10, "some sum", "SHA-1")
+	err := meta.CheckComplete()
+
+	c.Check(err, gc.IsNil)
+}
+
+func (s *MetadataSuite) TestFileMetadataCheckCompleteMissingID(c *gc.C) {
+	meta := filestorage.NewMetadata(nil)
+	meta.SetFile(10, "some sum", "SHA-1")
+	err := meta.CheckComplete()
+
+	c.Check(err, gc.ErrorMatches, "missing ID")
+}
+
+func (s *MetadataSuite) TestFileMetadataCheckCompleteMissingFile(c *gc.C) {
+	meta := filestorage.NewMetadata(nil)
+	meta.SetID("abcd")
+	err := meta.CheckComplete()
+
+	c.Check(err, gc.ErrorMatches, "missing file info.*")
+}
+
 func (s *MetadataSuite) TestFileMetadataDoc(c *gc.C) {
 	meta := filestorage.NewMetadata(nil)
 	meta.SetFile(10, "some sum", "SHA-1")
