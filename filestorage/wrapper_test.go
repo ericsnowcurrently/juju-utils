@@ -121,7 +121,7 @@ func (s *WrapperSuite) TestFileStorageAddMeta(c *gc.C) {
 
 	c.Check(id, gc.Equals, "<spam>")
 	c.Check(meta.ID(), gc.Equals, "<spam>")
-	s.metastor.Check(c, "", meta, "AddDoc")
+	s.metastor.Check(c, "", meta, "AddMetadata")
 	s.rawstor.CheckNotUsed(c)
 }
 
@@ -135,7 +135,7 @@ func (s *WrapperSuite) TestFileStorageAddFile(c *gc.C) {
 
 	c.Check(id, gc.Equals, "<spam>")
 	c.Check(meta.ID(), gc.Equals, "<spam>")
-	s.metastor.Check(c, "", meta, "AddDoc", "SetStored")
+	s.metastor.Check(c, "", meta, "AddMetadata", "SetStored")
 	s.rawstor.Check(c, id, file, 10, "AddFile")
 }
 
@@ -174,7 +174,7 @@ func (s *WrapperSuite) TestFileStorageRemove(c *gc.C) {
 	err := s.stor.Remove(id)
 	c.Assert(err, gc.IsNil)
 
-	s.metastor.Check(c, id, nil, "RemoveDoc")
+	s.metastor.Check(c, id, nil, "RemoveMetadata")
 	s.rawstor.Check(c, id, nil, 0, "RemoveFile")
 }
 
