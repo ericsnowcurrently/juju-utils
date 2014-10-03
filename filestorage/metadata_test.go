@@ -19,10 +19,6 @@ type FileMetadataSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *FileMetadataSuite) TestDocSatisfiesInterface(c *gc.C) {
-	var _ filestorage.Document = (*filestorage.DocWrapper)(nil)
-}
-
 func (s *FileMetadataSuite) TestSatisfiesInterface(c *gc.C) {
 	var _ filestorage.Metadata = (*filestorage.FileMetadata)(nil)
 }

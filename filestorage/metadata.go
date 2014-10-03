@@ -7,44 +7,16 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/utils/document"
 )
 
-// RawDoc is a basic, uniquely identifiable document.
-type RawDoc struct {
-	// ID is the unique identifier for the document.
-	ID string
-}
-
-// DocWrapper wraps a document in the Document interface.
-type DocWrapper struct {
-	Raw *RawDoc
-}
-
-// ID returns the document's unique identifier.
-func (d *DocWrapper) ID() string {
-	return d.Raw.ID
-}
-
-// SetID sets the document's unique identifier.  If the ID is already
-// set, SetID() returns true (false otherwise).
-func (d *DocWrapper) SetID(id string) bool {
-	if d.Raw.ID != "" {
-		return true
-	}
-	d.Raw.ID = id
-	return false
-}
-
-// Copy returns a copy of the document.
-func (d *DocWrapper) Copy(id string) Document {
-	copied := *d.Raw
-	copied.ID = id
-	return &DocWrapper{&copied}
-}
+type doc struct{ document.Doc } // ...to avoid a name conflict.
 
 // FileMetadata contains the metadata for a single stored file.
 type FileMetadata struct {
-	DocWrapper
+	doc
+
 	size           int64
 	checksum       string
 	checksumFormat string
@@ -58,7 +30,7 @@ type FileMetadata struct {
 // current one is used.
 func NewMetadata(timestamp *time.Time) *FileMetadata {
 	meta := FileMetadata{}
-	meta.DocWrapper.Raw = &RawDoc{}
+	meta.doc.Doc.Raw = &document.RawDoc{}
 	if timestamp == nil {
 		meta.timestamp = time.Now().UTC()
 	} else {
@@ -131,9 +103,8 @@ func (m *FileMetadata) SetStored() {
 }
 
 // Copy returns a copy of the document.
-func (m *FileMetadata) Copy(id string) Document {
+func (m *FileMetadata) Copy(id string) document.Document {
 	copied := *m
-	doc := m.DocWrapper.Copy(id).(*DocWrapper)
-	copied.DocWrapper = *doc
+	copied.doc = doc{*(m.doc.Doc.Copy(id).(*document.Doc))}
 	return &copied
 }
