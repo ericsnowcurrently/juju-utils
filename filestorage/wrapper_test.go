@@ -124,6 +124,7 @@ func (s *WrapperSuite) TestFileStorageAddMeta(c *gc.C) {
 
 	c.Check(id, gc.Equals, "<spam>")
 	c.Check(meta.ID(), gc.Equals, "")
+	c.Check(meta.Stored(), gc.IsNil)
 	s.metastor.Check(c, "", meta, "AddMetadata")
 	s.rawstor.CheckNotUsed(c)
 }
@@ -137,14 +138,13 @@ func (s *WrapperSuite) TestFileStorageAddFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Check(meta.ID(), gc.Equals, "")
-	c.Check(meta.Stored(), jc.IsFalse)
+	c.Check(meta.Stored(), gc.IsNil)
 
 	c.Check(id, gc.Equals, "<spam>")
 	c.Check(meta.ID(), gc.Equals, "")
+	c.Check(meta.Stored(), gc.NotNil)
 	s.metastor.Check(c, id, meta, "AddMetadata", "SetStored")
 	s.rawstor.Check(c, id, file, 10, "AddFile")
-
-	//c.Check(meta.Stored(), gc.Equals, true)
 }
 
 func (s *WrapperSuite) TestFileStorageAddIDNotSet(c *gc.C) {
@@ -162,7 +162,7 @@ func (s *WrapperSuite) TestFileStorageAddMetaOnly(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Check(meta, gc.Equals, original)
-	c.Check(meta.Stored(), jc.IsFalse)
+	c.Check(meta.Stored(), gc.IsNil)
 }
 
 func (s *WrapperSuite) TestFileStorageAddIDAlreadySet(c *gc.C) {
@@ -197,6 +197,7 @@ func (s *WrapperSuite) TestFileStorageSetFile(c *gc.C) {
 	err = s.stor.SetFile(id, file)
 	c.Assert(err, gc.IsNil)
 
+	c.Check(meta.Stored(), gc.NotNil)
 	s.metastor.Check(c, id, nil, "Metadata", "Metadata", "SetStored")
 	s.rawstor.Check(c, id, file, 10, "AddFile")
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/utils/document"
+	"github.com/juju/utils/storage"
 )
 
 // RawMetadata holds the data exposed by the Metadata interface.
@@ -19,17 +20,11 @@ type RawMetadata struct {
 	Checksum string
 	// ChecksumFormat describes the format of the checksum.
 	ChecksumFormat string
-	// Timestamp is when the file was created.
-	Timestamp time.Time
-	// Stored indicates that the file has been stored.
-	Stored bool
 }
-
-type doc struct{ document.Doc } // ...to avoid a name conflict.
 
 // FileMetadata contains the metadata for a single stored file.
 type FileMetadata struct {
-	doc
+	storage.StorageMetadata
 
 	// Raw holds the raw data backing the doc.
 	Raw *RawMetadata
@@ -39,15 +34,11 @@ type FileMetadata struct {
 // SetID() for that).  Size, Checksum, and ChecksumFormat are left unset
 // (use SetFile() for those).  If no timestamp is provided, the
 // current one is used.
-func NewMetadata(timestamp *time.Time) *FileMetadata {
+func NewMetadata(created *time.Time) *FileMetadata {
+	doc := storage.NewMetadata(created)
 	meta := FileMetadata{
-		Raw: &RawMetadata{},
-	}
-	meta.doc.Doc.Raw = &document.RawDoc{}
-	if timestamp == nil {
-		meta.Raw.Timestamp = time.Now().UTC()
-	} else {
-		meta.Raw.Timestamp = *timestamp
+		StorageMetadata: *doc,
+		Raw:             &RawMetadata{},
 	}
 	return &meta
 }
@@ -62,18 +53,6 @@ func (m *FileMetadata) Checksum() string {
 
 func (m *FileMetadata) ChecksumFormat() string {
 	return m.Raw.ChecksumFormat
-}
-
-func (m *FileMetadata) Timestamp() time.Time {
-	return m.Raw.Timestamp
-}
-
-func (m *FileMetadata) Stored() bool {
-	return m.Raw.Stored
-}
-
-func (m *FileMetadata) Doc() interface{} {
-	return m
 }
 
 func (m *FileMetadata) SetFile(size int64, checksum, format string) error {
@@ -111,16 +90,14 @@ func (m *FileMetadata) SetFile(size int64, checksum, format string) error {
 	return nil
 }
 
-func (m *FileMetadata) SetStored() {
-	m.Raw.Stored = true
-}
-
 // Copy returns a copy of the document.
+// Copy implements Doc.Copy.
 func (m *FileMetadata) Copy(id string) document.Document {
 	raw := *m.Raw
 	copied := FileMetadata{
-		doc: doc{*(m.doc.Doc.Copy(id).(*document.Doc))},
-		Raw: &raw,
+		StorageMetadata: *(m.StorageMetadata.Copy(id).(*storage.StorageMetadata)),
+		doc:             doc{*(m.doc.Doc.Copy(id).(*document.Doc))},
+		Raw:             &raw,
 	}
 	return &copied
 }
