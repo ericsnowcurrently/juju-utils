@@ -11,17 +11,28 @@ import (
 	"github.com/juju/utils/document"
 )
 
+// RawMetadata holds the data exposed by the Metadata interface.
+type RawMetadata struct {
+	// Size is the size of the stored file.
+	Size int64
+	// Checksum is the checksum of the stored file.
+	Checksum string
+	// ChecksumFormat describes the format of the checksum.
+	ChecksumFormat string
+	// Timestamp is when the file was created.
+	Timestamp time.Time
+	// Stored indicates that the file has been stored.
+	Stored bool
+}
+
 type doc struct{ document.Doc } // ...to avoid a name conflict.
 
 // FileMetadata contains the metadata for a single stored file.
 type FileMetadata struct {
 	doc
 
-	size           int64
-	checksum       string
-	checksumFormat string
-	timestamp      time.Time
-	stored         bool
+	// Raw holds the raw data backing the doc.
+	Raw *RawMetadata
 }
 
 // NewMetadata returns a new Metadata for a file.  ID is left unset (use
@@ -29,34 +40,36 @@ type FileMetadata struct {
 // (use SetFile() for those).  If no timestamp is provided, the
 // current one is used.
 func NewMetadata(timestamp *time.Time) *FileMetadata {
-	meta := FileMetadata{}
+	meta := FileMetadata{
+		Raw: &RawMetadata{},
+	}
 	meta.doc.Doc.Raw = &document.RawDoc{}
 	if timestamp == nil {
-		meta.timestamp = time.Now().UTC()
+		meta.Raw.Timestamp = time.Now().UTC()
 	} else {
-		meta.timestamp = *timestamp
+		meta.Raw.Timestamp = *timestamp
 	}
 	return &meta
 }
 
 func (m *FileMetadata) Size() int64 {
-	return m.size
+	return m.Raw.Size
 }
 
 func (m *FileMetadata) Checksum() string {
-	return m.checksum
+	return m.Raw.Checksum
 }
 
 func (m *FileMetadata) ChecksumFormat() string {
-	return m.checksumFormat
+	return m.Raw.ChecksumFormat
 }
 
 func (m *FileMetadata) Timestamp() time.Time {
-	return m.timestamp
+	return m.Raw.Timestamp
 }
 
 func (m *FileMetadata) Stored() bool {
-	return m.stored
+	return m.Raw.Stored
 }
 
 func (m *FileMetadata) Doc() interface{} {
@@ -66,13 +79,13 @@ func (m *FileMetadata) Doc() interface{} {
 func (m *FileMetadata) SetFile(size int64, checksum, format string) error {
 	// Fall back to existing values.
 	if size == 0 {
-		size = m.size
+		size = m.Raw.Size
 	}
 	if checksum == "" {
-		checksum = m.checksum
+		checksum = m.Raw.Checksum
 	}
 	if format == "" {
-		format = m.checksumFormat
+		format = m.Raw.ChecksumFormat
 	}
 	if checksum != "" {
 		if format == "" {
@@ -82,29 +95,32 @@ func (m *FileMetadata) SetFile(size int64, checksum, format string) error {
 		return errors.Errorf("missing checksum")
 	}
 	// Only allow setting once.
-	if m.size != 0 && size != m.size {
+	if m.Raw.Size != 0 && size != m.Raw.Size {
 		return errors.Errorf("file information (size) already set")
 	}
-	if m.checksum != "" && checksum != m.checksum {
+	if m.Raw.Checksum != "" && checksum != m.Raw.Checksum {
 		return errors.Errorf("file information (checksum) already set")
 	}
-	if m.checksumFormat != "" && format != m.checksumFormat {
+	if m.Raw.ChecksumFormat != "" && format != m.Raw.ChecksumFormat {
 		return errors.Errorf("file information (checksum format) already set")
 	}
 	// Set the values.
-	m.size = size
-	m.checksum = checksum
-	m.checksumFormat = format
+	m.Raw.Size = size
+	m.Raw.Checksum = checksum
+	m.Raw.ChecksumFormat = format
 	return nil
 }
 
 func (m *FileMetadata) SetStored() {
-	m.stored = true
+	m.Raw.Stored = true
 }
 
 // Copy returns a copy of the document.
 func (m *FileMetadata) Copy(id string) document.Document {
-	copied := *m
-	copied.doc = doc{*(m.doc.Doc.Copy(id).(*document.Doc))}
+	raw := *m.Raw
+	copied := FileMetadata{
+		doc: doc{*(m.doc.Doc.Copy(id).(*document.Doc))},
+		Raw: &raw,
+	}
 	return &copied
 }
