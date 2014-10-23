@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/utils/document"
 	"github.com/juju/utils/filestorage"
 )
 
@@ -37,7 +38,7 @@ func (s *FakeMetadataStorage) Check(c *gc.C, id string, meta filestorage.Metadat
 	c.Check(s.metaArg, gc.Equals, meta)
 }
 
-func (s *FakeMetadataStorage) Doc(id string) (filestorage.Document, error) {
+func (s *FakeMetadataStorage) Doc(id string) (document.Document, error) {
 	s.calls = append(s.calls, "Doc")
 	s.idArg = id
 	if s.err != nil {
@@ -46,19 +47,19 @@ func (s *FakeMetadataStorage) Doc(id string) (filestorage.Document, error) {
 	return s.meta, nil
 }
 
-func (s *FakeMetadataStorage) ListDocs() ([]filestorage.Document, error) {
+func (s *FakeMetadataStorage) ListDocs() ([]document.Document, error) {
 	s.calls = append(s.calls, "ListDoc")
 	if s.err != nil {
 		return nil, s.err
 	}
-	var docs []filestorage.Document
+	var docs []document.Document
 	for _, doc := range s.metaList {
 		docs = append(docs, doc)
 	}
 	return docs, nil
 }
 
-func (s *FakeMetadataStorage) AddDoc(doc filestorage.Document) (string, error) {
+func (s *FakeMetadataStorage) AddDoc(doc document.Document) (string, error) {
 	s.calls = append(s.calls, "AddDoc")
 	meta, err := filestorage.Convert(doc)
 	if err != nil {

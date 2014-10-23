@@ -7,100 +7,64 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/utils/document"
+	"github.com/juju/utils/storage"
 )
 
-// RawDoc is a basic, uniquely identifiable document.
-type RawDoc struct {
-	// ID is the unique identifier for the document.
-	ID string
-}
-
-// DocWrapper wraps a document in the Document interface.
-type DocWrapper struct {
-	Raw *RawDoc
-}
-
-// ID returns the document's unique identifier.
-func (d *DocWrapper) ID() string {
-	return d.Raw.ID
-}
-
-// SetID sets the document's unique identifier.  If the ID is already
-// set, SetID() returns true (false otherwise).
-func (d *DocWrapper) SetID(id string) bool {
-	if d.Raw.ID != "" {
-		return true
-	}
-	d.Raw.ID = id
-	return false
-}
-
-// Copy returns a copy of the document.
-func (d *DocWrapper) Copy(id string) Document {
-	copied := *d.Raw
-	copied.ID = id
-	return &DocWrapper{&copied}
+// RawMetadata holds the data exposed by the Metadata interface.
+type RawMetadata struct {
+	// Size is the size of the stored file.
+	Size int64
+	// Checksum is the checksum of the stored file.
+	Checksum string
+	// ChecksumFormat describes the format of the checksum.
+	ChecksumFormat string
 }
 
 // FileMetadata contains the metadata for a single stored file.
 type FileMetadata struct {
-	DocWrapper
-	size           int64
-	checksum       string
-	checksumFormat string
-	timestamp      time.Time
-	stored         bool
+	storage.StorageMetadata
+
+	// Raw holds the raw data backing the doc.
+	Raw *RawMetadata
 }
 
 // NewMetadata returns a new Metadata for a file.  ID is left unset (use
 // SetID() for that).  Size, Checksum, and ChecksumFormat are left unset
 // (use SetFile() for those).  If no timestamp is provided, the
 // current one is used.
-func NewMetadata(timestamp *time.Time) *FileMetadata {
-	meta := FileMetadata{}
-	meta.DocWrapper.Raw = &RawDoc{}
-	if timestamp == nil {
-		meta.timestamp = time.Now().UTC()
-	} else {
-		meta.timestamp = *timestamp
+func NewMetadata(created *time.Time) *FileMetadata {
+	doc := storage.NewMetadata(created)
+	meta := FileMetadata{
+		StorageMetadata: *doc,
+		Raw:             &RawMetadata{},
 	}
 	return &meta
 }
 
 func (m *FileMetadata) Size() int64 {
-	return m.size
+	return m.Raw.Size
 }
 
 func (m *FileMetadata) Checksum() string {
-	return m.checksum
+	return m.Raw.Checksum
 }
 
 func (m *FileMetadata) ChecksumFormat() string {
-	return m.checksumFormat
-}
-
-func (m *FileMetadata) Timestamp() time.Time {
-	return m.timestamp
-}
-
-func (m *FileMetadata) Stored() bool {
-	return m.stored
-}
-
-func (m *FileMetadata) Doc() interface{} {
-	return m
+	return m.Raw.ChecksumFormat
 }
 
 func (m *FileMetadata) SetFile(size int64, checksum, format string) error {
 	// Fall back to existing values.
 	if size == 0 {
-		size = m.size
+		size = m.Raw.Size
 	}
 	if checksum == "" {
-		checksum = m.checksum
+		checksum = m.Raw.Checksum
 	}
 	if format == "" {
-		format = m.checksumFormat
+		format = m.Raw.ChecksumFormat
 	}
 	if checksum != "" {
 		if format == "" {
@@ -110,30 +74,30 @@ func (m *FileMetadata) SetFile(size int64, checksum, format string) error {
 		return errors.Errorf("missing checksum")
 	}
 	// Only allow setting once.
-	if m.size != 0 && size != m.size {
+	if m.Raw.Size != 0 && size != m.Raw.Size {
 		return errors.Errorf("file information (size) already set")
 	}
-	if m.checksum != "" && checksum != m.checksum {
+	if m.Raw.Checksum != "" && checksum != m.Raw.Checksum {
 		return errors.Errorf("file information (checksum) already set")
 	}
-	if m.checksumFormat != "" && format != m.checksumFormat {
+	if m.Raw.ChecksumFormat != "" && format != m.Raw.ChecksumFormat {
 		return errors.Errorf("file information (checksum format) already set")
 	}
 	// Set the values.
-	m.size = size
-	m.checksum = checksum
-	m.checksumFormat = format
+	m.Raw.Size = size
+	m.Raw.Checksum = checksum
+	m.Raw.ChecksumFormat = format
 	return nil
 }
 
-func (m *FileMetadata) SetStored() {
-	m.stored = true
-}
-
 // Copy returns a copy of the document.
-func (m *FileMetadata) Copy(id string) Document {
-	copied := *m
-	doc := m.DocWrapper.Copy(id).(*DocWrapper)
-	copied.DocWrapper = *doc
+// Copy implements Doc.Copy.
+func (m *FileMetadata) Copy(id string) document.Document {
+	raw := *m.Raw
+	copied := FileMetadata{
+		StorageMetadata: *(m.StorageMetadata.Copy(id).(*storage.StorageMetadata)),
+		doc:             doc{*(m.doc.Doc.Copy(id).(*document.Doc))},
+		Raw:             &raw,
+	}
 	return &copied
 }
