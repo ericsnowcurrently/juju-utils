@@ -5,6 +5,7 @@ package basic_test
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/utils/filestorage"
@@ -58,13 +59,13 @@ func (s *MetadataStorageSuite) TestSetStored(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	meta, err := s.stor.Metadata(id)
 	c.Assert(err, gc.IsNil)
-	c.Check(meta.Stored(), gc.Equals, false)
+	c.Check(meta.Stored(), jc.IsFalse)
 
 	err = s.stor.SetStored(id)
 	c.Assert(err, gc.IsNil)
-	c.Check(meta.Stored(), gc.Equals, false)
+	c.Check(meta.Stored(), jc.IsFalse)
 
 	stored, err := s.stor.Metadata(id)
 	c.Assert(err, gc.IsNil)
-	c.Check(stored.Stored(), gc.Equals, true)
+	c.Check(stored.Stored(), jc.IsTrue)
 }
