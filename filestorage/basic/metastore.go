@@ -32,7 +32,7 @@ func (s *metadataStorage) SetStored(id string) error {
 	}
 	meta, ok := doc.(filestorage.Metadata)
 	if !ok {
-		return errors.Errorf("doc wasn't Metadata (got %v)", doc)
+		return errors.Errorf("expected Metadata type, got %T", doc)
 	}
 	meta.SetStored()
 	return nil
