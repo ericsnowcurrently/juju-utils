@@ -54,7 +54,7 @@ func (s *docStorage) ListDocs() ([]filestorage.Document, error) {
 // AddDoc implements DocStorage.AddDoc.
 func (s *docStorage) AddDoc(doc filestorage.Document) (string, error) {
 	if doc.ID() != "" {
-		return "", errors.AlreadyExistsf("ID already set")
+		return "", errors.AlreadyExistsf("ID %q", doc.ID())
 	}
 
 	uuid, err := utils.NewUUID()
