@@ -11,21 +11,21 @@ import (
 	"github.com/juju/errors"
 )
 
-// FileInfo holds the information exposed by the os.FileInfo interface.
-type FileInfo struct {
-	Name    string
-	Size    int64
-	Mode    os.FileMode
-	ModTime time.Time
+// File associates a FileNode with an associated filename.
+type File struct {
+    FileInfo
+    node FileNode
 }
 
-// File holds information about a filesystem node. It implements
-// os.FileInfo. It may also hold the file's data. That data is exposed
-// through the Open method as a separate io.ReadWriteCloser.
+func (
+
+// FileNode holds information about a regular filesystem file. It may
+// also hold the file's data. That data is exposed through the Open
+// method as a separate io.ReadWriteCloser.
 //
-// File is useful for testing and for ad hoc in-memory filesystems.
-type File struct {
-	Info FileInfo
+// FileNode is useful for testing and for ad hoc in-memory filesystems.
+type FileNode struct {
+	NodeInfo
 	Data []byte
 }
 
@@ -58,37 +58,6 @@ func NewDir(dirname string, perm os.FileMode) *File {
 func NewSymlink(oldName, newName string) *File {
 	perm := os.ModePerm
 	return newFile(newName, perm|os.ModeSymlink, []byte(oldName))
-}
-
-// Name implements os.FileInfo.
-func (f File) Name() string {
-	return f.Info.Name
-}
-
-// Size implements os.FileInfo.
-func (f File) Size() int64 {
-	return f.Info.Size
-}
-
-// Mode implements os.FileInfo.
-func (f File) Mode() os.FileMode {
-	return f.Info.Mode
-}
-
-// ModTime implements os.FileInfo.
-func (f File) ModTime() time.Time {
-	return f.Info.ModTime
-}
-
-// IsDir implements os.FileInfo.
-func (f File) IsDir() bool {
-	return f.Info.Mode.IsDir()
-}
-
-// Sys implements os.FileInfo.
-func (f File) Sys() interface{} {
-	// This is not implemented.
-	return nil
 }
 
 // SetData updates the file's data and associated file info.
