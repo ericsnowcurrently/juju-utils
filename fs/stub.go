@@ -109,7 +109,7 @@ func (fo *StubOps) MkdirAll(dirname string, perm os.FileMode) error {
 
 // ListDir implements Operations.
 func (fo *StubOps) ListDir(dirname string) ([]os.FileInfo, error) {
-	fo.AddCall("ReadDir", dirname)
+	fo.AddCall("ListDir", dirname)
 	return fo.Returns.DirEntries, fo.NextErr()
 }
 
