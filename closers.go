@@ -6,6 +6,8 @@ package utils
 import (
 	"fmt"
 	"io"
+
+	"github.com/juju/errors"
 )
 
 type wrappingCloser struct {
@@ -51,15 +53,27 @@ func (mc *multiCloser) AddClosers(closers ...io.Closer) {
 
 // Close implements MultiCloser.
 func (mc multiCloser) Close() error {
-	for i, closer := range mc.closers {
+	closers := mc.closers
+	var ids []string
+	for i := range closers {
+		ids = append(ids, fmt.Sprintf("#%d", i))
+	}
+	err, setError := errors.NewBulkError(ids...)
+
+	for i, closer := range closers {
 		if err := closer.Close(); err != nil {
+			id := ids[i]
+			setError(id, errors.Trace(err))
 			if mc.errHandler == nil {
 				// TODO(ericsnow) Fail by default?
 				continue
 			}
-			name := fmt.Sprintf("#%d", i)
-			mc.errHandler(name, err)
+			mc.errHandler(id, err)
 		}
+	}
+
+	if !err.NoErrors() {
+		return errors.Trace(err)
 	}
 	return nil
 }

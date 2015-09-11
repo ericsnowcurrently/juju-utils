@@ -159,8 +159,8 @@ func (s *multiCloserSuite) TestCloseError(c *gc.C) {
 	closer.AddClosers(subCloserA, subCloserB, subCloserC)
 
 	err := closer.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(err, gc.ErrorMatches, `1/3 items failed a bulk request: .*`)
 	stub.CheckCallNames(c, "close-A", "close-B", "errHandler", "close-C")
 }
 
@@ -179,8 +179,8 @@ func (s *multiCloserSuite) TestCloseMultiError(c *gc.C) {
 	closer.AddClosers(subCloserA, subCloserB, subCloserC)
 
 	err := closer.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(err, gc.ErrorMatches, `3/3 items failed a bulk request: .*`)
 	stub.CheckCallNames(c,
 		"close-A", "errHandler",
 		"close-B", "errHandler",
