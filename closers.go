@@ -26,63 +26,24 @@ func (wc wrappingCloser) Close() error {
 	return wc.closeFunc()
 }
 
-// Multicloser is an io.Closer that wraps multiple other closers. It
-// closes them in the same order in which they were added.
-type MultiCloser interface {
-	io.Closer
-
-	// AddCloser adds the identified closer to the set of closers.
-	AddCloser(string, io.Closer)
-
-	// AddClosers adds the provided closers to the set of closers.
-	AddClosers(...io.Closer)
-}
-
-type multiCloser struct {
-	ids        []string
-	closers    []io.Closer
-	errHandler func(string, error)
-}
-
-// NewMultiCloser creates a new MultiCloser.
-func NewMultiCloser(errHandler func(string, error)) MultiCloser {
-	return &multiCloser{
-		errHandler: errHandler,
+// CloseAll calls each of the provided closers. If any of them returns
+// an errors then the error is stored and the handler (if any) is
+// called. The resulting error will be an errors.BulkError.
+func CloseAll(handleErr func(string, error), closers ...io.Closer) error {
+	var ids []string
+	for i := range closers {
+		ids = append(ids, fmt.Sprintf("closer %d/%d", i+1, len(closers)))
 	}
-}
+	err, setError := errors.NewBulkError(ids...)
 
-// AddCloser implements MultiCloser.
-func (mc *multiCloser) AddCloser(id string, closer io.Closer) {
-	// TODO(ericsnow) This isn't thread-safe.
-	if id == "" {
-		id = fmt.Sprintf("#%d", len(mc.ids))
-	}
-	// TODO(ericsnow) Handle ID collisions?
-	mc.ids = append(mc.ids, id)
-	mc.closers = append(mc.closers, closer)
-}
-
-// AddCloser implements MultiCloser.
-func (mc *multiCloser) AddClosers(closers ...io.Closer) {
-	for _, closer := range closers {
-		mc.AddCloser("", closer)
-	}
-}
-
-// Close implements MultiCloser.
-func (mc multiCloser) Close() error {
-	// TODO(ericsnow) This isn't thread-safe.
-	err, setError := errors.NewBulkError(mc.ids...)
-
-	for i, closer := range mc.closers {
+	for i, closer := range closers {
 		if err := closer.Close(); err != nil {
-			id := mc.ids[i]
+			id := ids[i]
 			setError(id, errors.Trace(err))
-			if mc.errHandler == nil {
-				// TODO(ericsnow) Fail by default?
+			if handleErr == nil {
 				continue
 			}
-			mc.errHandler(id, err)
+			handleErr(id, err)
 		}
 	}
 

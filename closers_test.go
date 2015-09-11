@@ -16,7 +16,7 @@ import (
 
 var (
 	_ = gc.Suite(&wrappingCloserSuite{})
-	_ = gc.Suite(&multiCloserSuite{})
+	_ = gc.Suite(&closeAllSuite{})
 )
 
 type wrappingCloserSuite struct {
@@ -62,11 +62,11 @@ func (*wrappingCloserSuite) TestCloseError(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-type multiCloserSuite struct {
+type closeAllSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *multiCloserSuite) newCloser(name string, stub *testing.Stub) io.Closer {
+func (s *closeAllSuite) newCloser(name string, stub *testing.Stub) io.Closer {
 	return utils.NewCloser(func() error {
 		stub.AddCall("close-" + name)
 		if err := stub.NextErr(); err != nil {
@@ -76,75 +76,44 @@ func (s *multiCloserSuite) newCloser(name string, stub *testing.Stub) io.Closer 
 	})
 }
 
-func (s *multiCloserSuite) TestNewMultiCloserOkay(c *gc.C) {
-	var stub testing.Stub
-	errHandler := func(string, error) {
-		stub.AddCall("errHandler")
-	}
-	closer := utils.NewMultiCloser(errHandler)
-
-	c.Check(closer, gc.NotNil)
-	stub.CheckCalls(c, nil)
-}
-
-func (s *multiCloserSuite) TestNewMultiCloserNilErrHandler(c *gc.C) {
-	closer := utils.NewMultiCloser(nil)
-
-	c.Check(closer, gc.NotNil)
-}
-
-func (s *multiCloserSuite) TestAddClosersOkay(c *gc.C) {
-	var stub testing.Stub
-	subCloserA := s.newCloser("A", &stub)
-	subCloserB := s.newCloser("B", &stub)
-	closer := utils.NewMultiCloser(nil)
-
-	closer.AddClosers(subCloserA, subCloserB)
-	err := closer.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	stub.CheckCallNames(c, "close-A", "close-B")
-}
-
-func (s *multiCloserSuite) TestAddClosersNone(c *gc.C) {
-	closer := utils.NewMultiCloser(nil)
-
-	closer.AddClosers()
-	err := closer.Close()
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *multiCloserSuite) TestCloseOkay(c *gc.C) {
+func (s *closeAllSuite) TestOkay(c *gc.C) {
 	var stub testing.Stub
 	errHandler := func(string, error) {
 		stub.AddCall("errHandler")
 	}
 	subCloserA := s.newCloser("A", &stub)
 	subCloserB := s.newCloser("B", &stub)
-	closer := utils.NewMultiCloser(errHandler)
-	closer.AddClosers(subCloserA, subCloserB)
 
-	err := closer.Close()
+	err := utils.CloseAll(errHandler, subCloserA, subCloserB)
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCallNames(c, "close-A", "close-B")
 }
 
-func (s *multiCloserSuite) TestCloseNoClosers(c *gc.C) {
+func (s *closeAllSuite) TestOkayNoHandler(c *gc.C) {
+	var stub testing.Stub
+	subCloserA := s.newCloser("A", &stub)
+	subCloserB := s.newCloser("B", &stub)
+
+	err := utils.CloseAll(nil, subCloserA, subCloserB)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCallNames(c, "close-A", "close-B")
+}
+
+func (s *closeAllSuite) TestNoClosers(c *gc.C) {
 	var stub testing.Stub
 	errHandler := func(string, error) {
 		stub.AddCall("errHandler")
 	}
-	closer := utils.NewMultiCloser(errHandler)
 
-	err := closer.Close()
+	err := utils.CloseAll(errHandler)
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCalls(c, nil)
 }
 
-func (s *multiCloserSuite) TestCloseError(c *gc.C) {
+func (s *closeAllSuite) TestOneError(c *gc.C) {
 	var stub testing.Stub
 	failure := errors.Errorf("<failure>")
 	stub.SetErrors(nil, failure, nil, nil)
@@ -155,16 +124,14 @@ func (s *multiCloserSuite) TestCloseError(c *gc.C) {
 	subCloserA := s.newCloser("A", &stub)
 	subCloserB := s.newCloser("B", &stub)
 	subCloserC := s.newCloser("C", &stub)
-	closer := utils.NewMultiCloser(errHandler)
-	closer.AddClosers(subCloserA, subCloserB, subCloserC)
 
-	err := closer.Close()
+	err := utils.CloseAll(errHandler, subCloserA, subCloserB, subCloserC)
 
 	c.Check(err, gc.ErrorMatches, `1/3 items failed a bulk request: .*`)
 	stub.CheckCallNames(c, "close-A", "close-B", "errHandler", "close-C")
 }
 
-func (s *multiCloserSuite) TestCloseMultiError(c *gc.C) {
+func (s *closeAllSuite) TestMultiError(c *gc.C) {
 	var stub testing.Stub
 	failure := errors.Errorf("<failure>")
 	stub.SetErrors(failure, nil, failure, nil, failure, nil)
@@ -175,10 +142,8 @@ func (s *multiCloserSuite) TestCloseMultiError(c *gc.C) {
 	subCloserA := s.newCloser("A", &stub)
 	subCloserB := s.newCloser("B", &stub)
 	subCloserC := s.newCloser("C", &stub)
-	closer := utils.NewMultiCloser(errHandler)
-	closer.AddClosers(subCloserA, subCloserB, subCloserC)
 
-	err := closer.Close()
+	err := utils.CloseAll(errHandler, subCloserA, subCloserB, subCloserC)
 
 	c.Check(err, gc.ErrorMatches, `3/3 items failed a bulk request: .*`)
 	stub.CheckCallNames(c,
@@ -186,4 +151,18 @@ func (s *multiCloserSuite) TestCloseMultiError(c *gc.C) {
 		"close-B", "errHandler",
 		"close-C", "errHandler",
 	)
+}
+
+func (s *closeAllSuite) TestErrorNoHandler(c *gc.C) {
+	var stub testing.Stub
+	failure := errors.Errorf("<failure>")
+	stub.SetErrors(failure, nil, failure)
+	subCloserA := s.newCloser("A", &stub)
+	subCloserB := s.newCloser("B", &stub)
+	subCloserC := s.newCloser("C", &stub)
+
+	err := utils.CloseAll(nil, subCloserA, subCloserB, subCloserC)
+
+	c.Check(err, gc.ErrorMatches, `2/3 items failed a bulk request: .*`)
+	stub.CheckCallNames(c, "close-A", "close-B", "close-C")
 }
