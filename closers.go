@@ -30,11 +30,16 @@ func (wc wrappingCloser) Close() error {
 // closes them in the same order in which they were added.
 type MultiCloser interface {
 	io.Closer
+
+	// AddCloser adds the identified closer to the set of closers.
+	AddCloser(string, io.Closer)
+
 	// AddClosers adds the provided closers to the set of closers.
 	AddClosers(...io.Closer)
 }
 
 type multiCloser struct {
+	ids        []string
 	closers    []io.Closer
 	errHandler func(string, error)
 }
@@ -47,22 +52,31 @@ func NewMultiCloser(errHandler func(string, error)) MultiCloser {
 }
 
 // AddCloser implements MultiCloser.
+func (mc *multiCloser) AddCloser(id string, closer io.Closer) {
+	// TODO(ericsnow) This isn't thread-safe.
+	if id == "" {
+		id = fmt.Sprintf("#%d", len(mc.ids))
+	}
+	// TODO(ericsnow) Handle ID collisions?
+	mc.ids = append(mc.ids, id)
+	mc.closers = append(mc.closers, closer)
+}
+
+// AddCloser implements MultiCloser.
 func (mc *multiCloser) AddClosers(closers ...io.Closer) {
-	mc.closers = append(mc.closers, closers...)
+	for _, closer := range closers {
+		mc.AddCloser("", closer)
+	}
 }
 
 // Close implements MultiCloser.
 func (mc multiCloser) Close() error {
-	closers := mc.closers
-	var ids []string
-	for i := range closers {
-		ids = append(ids, fmt.Sprintf("#%d", i))
-	}
-	err, setError := errors.NewBulkError(ids...)
+	// TODO(ericsnow) This isn't thread-safe.
+	err, setError := errors.NewBulkError(mc.ids...)
 
-	for i, closer := range closers {
+	for i, closer := range mc.closers {
 		if err := closer.Close(); err != nil {
-			id := ids[i]
+			id := mc.ids[i]
 			setError(id, errors.Trace(err))
 			if mc.errHandler == nil {
 				// TODO(ericsnow) Fail by default?
