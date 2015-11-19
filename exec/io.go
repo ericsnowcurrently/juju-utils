@@ -64,3 +64,13 @@ type StdioSetter interface {
 	// standard error when the command starts.
 	StderrPipe() (io.ReadCloser, error)
 }
+
+// StderrToStdout sets the command's stderr to match stdout. stderr must
+// not be set yet.
+func StderrToStdout(cmd Command) error {
+	stderr := cmd.Info().Stdio.Out
+	if err := cmd.SetStdio(Stdio{Err: stderr}); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
