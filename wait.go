@@ -5,6 +5,7 @@ package utils
 
 import (
 	"reflect"
+	"time"
 
 	"github.com/juju/errors"
 )
@@ -32,4 +33,51 @@ func WaitForError(channels ...<-chan error) error {
 	}
 	err := val.Interface().(error)
 	return errors.Trace(err)
+}
+
+type waitError struct {
+	error
+}
+
+// WaitAbortable waits until the done channel or one of the abort
+// channels receives. If the wait is aborted then false is returned.
+// Otherwise true is returned.
+func WaitAbortable(done <-chan error, abort ...<-chan error) (bool, error) {
+	waitCh := make(chan error, 1)
+	defer close(waitCh)
+	go func() {
+		err := <-done
+		waitCh <- &waitError{err}
+	}()
+
+	err := WaitForError(append([]<-chan error{waitCh}, abort...)...)
+	if err != nil {
+		if waitErr, ok := err.(*waitError); ok {
+			return true, errors.Trace(waitErr)
+		}
+
+		return false, errors.Trace(err)
+	}
+
+	return true, nil
+}
+
+// WaitTimedOut indicates that a wait timed out.
+var WaitTimedOut = errors.New("timed out while waiting")
+
+// WaitWithTimeout waits for an operation to finish. If the provided
+// timeout channel receives before then, the process is killed.
+//
+// Combine this with clock.WallClock.After() to use a timeout duration.
+func WaitWithTimeout(done <-chan error, timeoutCh <-chan time.Time) error {
+	abortCh := make(chan error, 1)
+	go func() {
+		<-timeoutCh
+		abortCh <- WaitTimedOut
+	}()
+
+	if _, err := WaitAbortable(done, abortCh); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
