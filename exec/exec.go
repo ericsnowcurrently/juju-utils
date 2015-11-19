@@ -12,6 +12,12 @@ var logger = loggo.GetLogger("juju.utils.exec")
 
 // Exec exposes the functionality of a command execution system.
 type Exec interface {
+	// FindExecutable looks for the named executable within the
+	// execution system and returns a path that may be used in
+	// CommandInfo.Path. If the executable cannot be found then
+	// errors.NotFound is returned.
+	FindExecutable(name string) (string, error)
+
 	// Command returns a Command related to the system for the given info.
 	Command(info CommandInfo) (Command, error)
 

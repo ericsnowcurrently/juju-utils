@@ -20,6 +20,40 @@ func NewOSExec() Exec {
 	return &OSExec{}
 }
 
+// FindExecutable implements Exec.
+func (e OSExec) FindExecutable(name string) (string, error) {
+	path, err := osexec.LookPath(name)
+	if causeIsOSCmdNotFound(err) {
+		return path, errors.NotFoundf("command %q", name)
+	}
+	if err != nil {
+		return path, errors.Trace(err)
+	}
+	return path, nil
+}
+
+// causeIsOSCmdNotFound returns true if the provided error indicates
+// that the command passed to exec.LookPath or exec.Command was
+// not found.
+func causeIsOSCmdNotFound(err error) bool {
+	err = errors.Cause(err)
+	if os.IsNotExist(err) {
+		// Executable could not be found, go 1.3 and later
+		return true
+	}
+	if err == osexec.ErrNotFound {
+		return true
+	}
+	if execErr, ok := err.(*osexec.Error); ok {
+		// Executable could not be found, go 1.2
+		if os.IsNotExist(execErr.Err) || execErr.Err == osexec.ErrNotFound {
+			return true
+		}
+	}
+	return false
+}
+
+// Command implements Exec.
 func (e OSExec) Command(info CommandInfo) (Command, error) {
 	// TODO(ericsnow) Ensure that raw.Path and raw.Args are not empty?
 

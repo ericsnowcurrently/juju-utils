@@ -84,6 +84,34 @@ type OSExecFunctionalSuite struct {
 	BaseSuite
 }
 
+func (s *OSExecFunctionalSuite) TestFindExecutableOkay(c *gc.C) {
+	expected := s.AddScript(c, "spam", "")
+	e := exec.NewOSExec()
+
+	path, err := e.FindExecutable("spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(path, gc.Equals, expected)
+}
+
+func (s *OSExecFunctionalSuite) TestFindExecutableNotFound(c *gc.C) {
+	e := exec.NewOSExec()
+
+	_, err := e.FindExecutable("spam")
+
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *OSExecFunctionalSuite) TestFindExecutableError(c *gc.C) {
+	path := s.AddBinDir(c, "spam")
+	e := exec.NewOSExec()
+
+	_, err := e.FindExecutable(path)
+
+	c.Check(err, gc.NotNil)
+	c.Check(errors.Cause(err), gc.Not(jc.Satisfies), errors.IsNotFound)
+}
+
 func (s *OSExecFunctionalSuite) TestCommandOkay(c *gc.C) {
 	resolved := s.AddScript(c, "ls", "/bin/ls $@")
 	args := []string{"ls", "-la", "."}

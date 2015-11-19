@@ -13,6 +13,7 @@ import (
 type StubExec struct {
 	stub *testing.Stub
 
+	ReturnPath    string
 	ReturnCommand exec.Command
 	ReturnList    []exec.Process
 	ReturnGet     exec.Process
@@ -22,6 +23,15 @@ func NewStubExec(stub *testing.Stub) *StubExec {
 	return &StubExec{
 		stub: stub,
 	}
+}
+
+func (s *StubExec) FindExecutable(name string) (string, error) {
+	s.stub.AddCall("FindExecutable", name)
+	if err := s.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return s.ReturnPath, nil
 }
 
 func (s *StubExec) Command(info exec.CommandInfo) (exec.Command, error) {
