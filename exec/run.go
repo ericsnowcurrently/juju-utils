@@ -68,8 +68,15 @@ func CombinedOutput(cmd Command) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-type waitError struct {
-	error
+func waitCh(proc ProcessControl, state *ProcessState) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		defer close(done)
+		st, err := proc.Wait()
+		*state = st
+		done <- err
+	}()
+	return done
 }
 
 // CommandTimedOut indicates that a command timed out.
@@ -78,38 +85,29 @@ var CommandTimedOut = errors.New("command timed out")
 // WaitWithTimeout waits for the process to finish. If the provided
 // channel receives before then, the process is killed.
 func WaitWithTimeout(proc ProcessControl, timeoutCh <-chan time.Time) (ProcessState, error) {
-	abortCh := make(chan error, 1)
-	go func() {
-		<-timeoutCh
-		abortCh <- CommandTimedOut
-	}()
+	var state ProcessState
 
-	state, err := WaitAbortable(proc, abortCh)
+	done := waitCh(proc, &state)
+
+	err := utils.WaitWithTimeout(done, timeoutCh)
+	if errors.Cause(err) == utils.WaitTimedOut {
+		return state, errors.Trace(CommandTimedOut)
+	}
 	if err != nil {
 		return state, errors.Trace(err)
 	}
 	return state, nil
 }
 
-// WaitWithTimeout waits for the process to finish. If the provided
+// WaitAbortable waits for the process to finish. If the provided
 // channels receive before then, the process is killed.
 func WaitAbortable(proc ProcessControl, abortChans ...<-chan error) (ProcessState, error) {
 	var state ProcessState
 
-	done := make(chan error, 1)
-	go func() {
-		defer close(done)
-		st, err := proc.Wait()
-		state = st
-		done <- &waitError{err}
-	}()
+	done := waitCh(proc, &state)
 
-	err := utils.WaitForError(append([]<-chan error{done}, abortChans...)...)
-	if err != nil {
-		if waitErr, ok := err.(*waitError); ok {
-			return state, errors.Trace(waitErr)
-		}
-
+	completed, err := utils.WaitAbortable(done, abortChans...)
+	if !completed {
 		// Abort!
 		if err := proc.Kill(); err != nil {
 			logger.Errorf("while killing process: %v", err)
@@ -118,7 +116,9 @@ func WaitAbortable(proc ProcessControl, abortChans ...<-chan error) (ProcessStat
 		proc.Wait() // Finalize the command.
 		return state, errors.Trace(err)
 	}
-
+	if err != nil {
+		return state, errors.Trace(err)
+	}
 	return state, nil
 }
 
