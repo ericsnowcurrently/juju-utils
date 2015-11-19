@@ -111,11 +111,9 @@ func (s *CmdStdio) StderrPipe() (io.ReadCloser, error) {
 	return r, nil
 }
 
-// TODO(ericsnow) Expose this as utils.Waiter?
-
 // RawProcessControl exposes low-level process control.
 type RawProcessControl interface {
-	Wait() error
+	utils.Waiter
 }
 
 // ProcControl is a ProcessControl implementation that
