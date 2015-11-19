@@ -57,6 +57,15 @@ func (s *StubProcess) Wait() (exec.ProcessState, error) {
 	return s.ReturnWait, nil
 }
 
+func (s *StubProcess) Interrupt() error {
+	s.stub.AddCall("Interrupt")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 func (s *StubProcess) Kill() error {
 	s.stub.AddCall("Kill")
 	if err := s.stub.NextErr(); err != nil {
@@ -88,12 +97,14 @@ func (f *FakeProcess) Wait() (exec.ProcessState, error) {
 
 type StubRawProcessControl struct {
 	*StubWaiter
+	*StubInterrupter
 	*StubKiller
 }
 
 func NewStubRawProcessControl(stub *testing.Stub) *StubRawProcessControl {
 	return &StubRawProcessControl{
-		StubWaiter: NewStubWaiter(stub),
-		StubKiller: NewStubKiller(stub),
+		StubWaiter:      NewStubWaiter(stub),
+		StubInterrupter: NewStubInterrupter(stub),
+		StubKiller:      NewStubKiller(stub),
 	}
 }

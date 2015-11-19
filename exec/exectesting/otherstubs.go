@@ -27,6 +27,25 @@ func (s *StubWaiter) Wait() error {
 	return nil
 }
 
+type StubInterrupter struct {
+	*testing.Stub
+}
+
+func NewStubInterrupter(stub *testing.Stub) *StubInterrupter {
+	return &StubInterrupter{
+		Stub: stub,
+	}
+}
+
+func (s *StubInterrupter) Interrupt() error {
+	s.Stub.AddCall("Interrupt")
+	if err := s.Stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 type StubKiller struct {
 	*testing.Stub
 }

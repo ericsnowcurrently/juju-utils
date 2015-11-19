@@ -114,6 +114,7 @@ func (s *CmdStdio) StderrPipe() (io.ReadCloser, error) {
 // RawProcessControl exposes low-level process control.
 type RawProcessControl interface {
 	utils.Waiter
+	utils.Interrupter
 }
 
 // ProcControl is a ProcessControl implementation that
@@ -137,6 +138,14 @@ func (p ProcControl) Wait() (ProcessState, error) {
 		return nil, errors.Trace(err)
 	}
 	return state, nil
+}
+
+// Interrupt implements Process.
+func (p ProcControl) Interrupt() error {
+	if err := p.Raw.Interrupt(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Kill implements Process.

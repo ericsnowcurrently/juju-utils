@@ -28,6 +28,9 @@ type ProcessControl interface {
 	// Wait waits for the command to exit.
 	Wait() (ProcessState, error)
 
+	// Interrupt sends an interrupt signal to the process.
+	Interrupt() error
+
 	// Kill causes the Process to exit immediately.
 	Kill() error
 }

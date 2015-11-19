@@ -518,7 +518,7 @@ func (s *OSProcessSuite) TestWaitOkay(c *gc.C) {
 		ProcessState: raw,
 	}
 	process := exec.NewOSProcess(info)
-	process.(*exec.Proc).ProcessControl.(*exec.ProcControl).Raw = s.NewStubWaiter()
+	process.(*exec.Proc).ProcessControl.(*exec.ProcControl).Raw = s.NewStubRawProcessControl()
 
 	state, err := process.Wait()
 	c.Assert(err, jc.ErrorIsNil)
@@ -534,7 +534,7 @@ func (s *OSProcessSuite) TestWaitError(c *gc.C) {
 	}
 	failure := s.SetFailure()
 	process := exec.NewOSProcess(info)
-	process.(*exec.Proc).ProcessControl.(*exec.ProcControl).Raw = s.NewStubWaiter()
+	process.(*exec.Proc).ProcessControl.(*exec.ProcControl).Raw = s.NewStubRawProcessControl()
 
 	state, err := process.Wait()
 

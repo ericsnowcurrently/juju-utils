@@ -196,7 +196,7 @@ type OSRawProcessControl struct {
 	raw *osexec.Cmd
 }
 
-// Kill implements utils.Killer.
+// Wait implements RawProcessControl.
 func (o OSRawProcessControl) Wait() error {
 	if o.raw == nil {
 		return errors.New("process not initialized")
@@ -220,6 +220,18 @@ func IsOSCommandFailure(err error) bool {
 		return true
 	}
 	return false
+}
+
+// Interrupt implements RawProcessControl.
+func (o OSRawProcessControl) Interrupt() error {
+	if o.raw == nil {
+		return errors.New("process not initialized")
+	}
+
+	if err := o.raw.Process.Signal(os.Interrupt); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Kill implements utils.Killer.
