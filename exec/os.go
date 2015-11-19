@@ -208,6 +208,20 @@ func (o OSRawProcessControl) Wait() error {
 	return nil
 }
 
+// IsOSCommandFailure indicates whether or not the given error indicates
+// that a command failed (e.g. os/exec.ExitError).
+func IsOSCommandFailure(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	err = errors.Cause(err)
+	if exitErr, ok := err.(*osexec.ExitError); ok && exitErr != nil {
+		return true
+	}
+	return false
+}
+
 // Kill implements utils.Killer.
 func (o OSRawProcessControl) Kill() error {
 	if o.raw == nil {

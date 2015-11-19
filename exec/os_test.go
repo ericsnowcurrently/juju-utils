@@ -455,6 +455,37 @@ func (s *OSProcessSuite) TestCommandOkay(c *gc.C) {
 	s.Stub.CheckNoCalls(c)
 }
 
+func (s *OSProcessSuite) TestIsOSCommandFailureDirect(c *gc.C) {
+	var err osexec.ExitError
+	isFailure := exec.IsOSCommandFailure(&err)
+
+	c.Check(isFailure, jc.IsTrue)
+}
+
+func (s *OSProcessSuite) TestIsOSCommandFailureIndirect(c *gc.C) {
+	var err osexec.ExitError
+	isFailure := exec.IsOSCommandFailure(errors.Trace(&err))
+
+	c.Check(isFailure, jc.IsTrue)
+}
+
+func (s *OSProcessSuite) TestIsOSCommandFailureNil(c *gc.C) {
+	var err1 error
+	var err2 *osexec.ExitError
+	isFailure1 := exec.IsOSCommandFailure(err1)
+	isFailure2 := exec.IsOSCommandFailure(err2)
+
+	c.Check(isFailure1, jc.IsFalse)
+	c.Check(isFailure2, jc.IsFalse)
+}
+
+func (s *OSProcessSuite) TestIsOSCommandFailureNoMatch(c *gc.C) {
+	err := errors.New("<failure>")
+	isFailure := exec.IsOSCommandFailure(err)
+
+	c.Check(isFailure, jc.IsFalse)
+}
+
 func (s *OSProcessSuite) TestStateOkay(c *gc.C) {
 	raw := &os.ProcessState{}
 	info := &osexec.Cmd{
