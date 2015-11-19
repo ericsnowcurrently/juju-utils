@@ -10,8 +10,11 @@ import (
 	osexec "os/exec"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/utils"
 )
 
 // Run starts the provided command and waits for it to complete.
@@ -63,6 +66,60 @@ func CombinedOutput(cmd Command) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+type waitError struct {
+	error
+}
+
+// CommandTimedOut indicates that a command timed out.
+var CommandTimedOut = errors.New("command timed out")
+
+// WaitWithTimeout waits for the process to finish. If the provided
+// channel receives before then, the process is killed.
+func WaitWithTimeout(proc ProcessControl, timeoutCh <-chan time.Time) (ProcessState, error) {
+	abortCh := make(chan error, 1)
+	go func() {
+		<-timeoutCh
+		abortCh <- CommandTimedOut
+	}()
+
+	state, err := WaitAbortable(proc, abortCh)
+	if err != nil {
+		return state, errors.Trace(err)
+	}
+	return state, nil
+}
+
+// WaitWithTimeout waits for the process to finish. If the provided
+// channels receive before then, the process is killed.
+func WaitAbortable(proc ProcessControl, abortChans ...<-chan error) (ProcessState, error) {
+	var state ProcessState
+
+	done := make(chan error, 1)
+	go func() {
+		defer close(done)
+		st, err := proc.Wait()
+		state = st
+		done <- &waitError{err}
+	}()
+
+	err := utils.WaitForError(append([]<-chan error{done}, abortChans...)...)
+	if err != nil {
+		if waitErr, ok := err.(*waitError); ok {
+			return state, errors.Trace(waitErr)
+		}
+
+		// Abort!
+		if err := proc.Kill(); err != nil {
+			logger.Errorf("while killing process: %v", err)
+		}
+		<-done      // Wait for the command to finish.
+		proc.Wait() // Finalize the command.
+		return state, errors.Trace(err)
+	}
+
+	return state, nil
 }
 
 // TODO(ericsnow) Replace usage of RunCommands and RunParams with
