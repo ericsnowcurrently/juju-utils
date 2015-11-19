@@ -5,6 +5,7 @@ package exec_test
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,13 +27,35 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.StubSuite.SetUpTest(c)
 }
 
-func (s *BaseSuite) AddScript(c *gc.C, name, script string) string {
-	binDir := c.MkDir()
-	s.PatchEnvPathPrepend(binDir)
+func (s *BaseSuite) AddDir(c *gc.C, path ...string) string {
+	root := c.MkDir()
+	dirname := filepath.Join(append([]string{root}, path...)...)
 
+	err := os.MkdirAll(dirname, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return dirname
+}
+
+func (s *BaseSuite) AddBinDir(c *gc.C, path ...string) string {
+	if len(path) == 0 {
+		path = append(path, "bin")
+	}
+
+	dirname := s.AddDir(c, path...)
+
+	s.PatchEnvPathPrepend(dirname)
+
+	return dirname
+}
+
+func (s *BaseSuite) AddScript(c *gc.C, name, script string) string {
+	binDir := s.AddBinDir(c)
 	filename := filepath.Join(binDir, name)
+
 	err := ioutil.WriteFile(filename, []byte(script), 0755)
 	c.Assert(err, jc.ErrorIsNil)
+
 	return filename
 }
 
