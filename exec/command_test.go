@@ -4,6 +4,8 @@
 package exec_test
 
 import (
+	"bytes"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -11,7 +13,10 @@ import (
 	"github.com/juju/utils/exec"
 )
 
-var _ = gc.Suite(&CommandSuite{})
+var (
+	_ = gc.Suite(&CommandSuite{})
+	_ = gc.Suite(&CommandInfoSuite{})
+)
 
 type CommandSuite struct {
 	BaseSuite
@@ -49,7 +54,11 @@ func (s *CommandSuite) TestNewCommandError(c *gc.C) {
 	s.Stub.CheckCallNames(c, "Command")
 }
 
-func (s *CommandSuite) TestNewCommandInfo(c *gc.C) {
+type CommandInfoSuite struct {
+	BaseSuite
+}
+
+func (s *CommandInfoSuite) TestNewCommandInfo(c *gc.C) {
 	info := exec.NewCommandInfo("/x/y/z/spam", "--ham", "eggs")
 
 	c.Check(info, jc.DeepEquals, exec.CommandInfo{
@@ -60,4 +69,70 @@ func (s *CommandSuite) TestNewCommandInfo(c *gc.C) {
 			"eggs",
 		},
 	})
+}
+
+func (s *CommandInfoSuite) TestStringOkay(c *gc.C) {
+	info := exec.NewCommandInfo("/x/y/z/spam", "--ham", "eggs")
+	str := info.String()
+
+	c.Check(str, gc.Equals, "/x/y/z/spam --ham eggs")
+}
+
+func (s *CommandInfoSuite) TestStringFull(c *gc.C) {
+	info := exec.CommandInfo{
+		Path: "/x/y/z/spam",
+		Args: []string{
+			"spam",
+			"--ham",
+			"eggs",
+		},
+		Context: exec.Context{
+			Env: []string{"X=y"},
+			Dir: "/x/y/z",
+			Stdio: exec.Stdio{
+				In:  &bytes.Buffer{},
+				Out: &bytes.Buffer{},
+				Err: &bytes.Buffer{},
+			},
+		},
+	}
+	str := info.String()
+
+	c.Check(str, gc.Equals, "/x/y/z/spam --ham eggs")
+}
+
+func (s *CommandInfoSuite) TestStringDifferentPath(c *gc.C) {
+	info := exec.CommandInfo{
+		Path: "/x/y/z/spam",
+		Args: []string{
+			"spam",
+			"--ham",
+			"eggs",
+		},
+	}
+	str := info.String()
+
+	c.Check(str, gc.Equals, "/x/y/z/spam --ham eggs")
+}
+
+func (s *CommandInfoSuite) TestStringNoPath(c *gc.C) {
+	info := exec.CommandInfo{
+		Args: []string{
+			"spam",
+			"--ham",
+			"eggs",
+		},
+	}
+	str := info.String()
+
+	c.Check(str, gc.Equals, "spam --ham eggs")
+}
+
+func (s *CommandInfoSuite) TestStringNoArgs(c *gc.C) {
+	info := exec.CommandInfo{
+		Path: "/x/y/z/spam",
+	}
+	str := info.String()
+
+	c.Check(str, gc.Equals, "/x/y/z/spam")
 }

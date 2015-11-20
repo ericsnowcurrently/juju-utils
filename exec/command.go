@@ -4,6 +4,8 @@
 package exec
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 )
 
@@ -64,8 +66,22 @@ type CommandInfo struct {
 // NewCommandInfo returns a new CommandInfo for the given command. None
 // of the command's context is set.
 func NewCommandInfo(path string, args ...string) CommandInfo {
+	// TODO(ericsnow) Call Exec.FindExecutable() for path?
 	return CommandInfo{
 		Path: path,
 		Args: append([]string{path}, args...),
 	}
+}
+
+// String returns a printable string for the info.
+func (info CommandInfo) String() string {
+	if info.Path == "" {
+		return strings.Join(info.Args, " ")
+	}
+	if len(info.Args) == 0 {
+		return info.Path
+	}
+
+	parts := append([]string{info.Path}, info.Args[1:]...)
+	return strings.Join(parts, " ")
 }
