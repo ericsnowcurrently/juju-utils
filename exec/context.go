@@ -5,6 +5,8 @@ package exec
 
 import (
 	"github.com/juju/errors"
+
+	"github.com/juju/utils/filepath"
 )
 
 // Context describes the context in which a command will run.
@@ -20,6 +22,24 @@ type Context struct {
 
 	// Stdio holds the stdio streams for the context.
 	Stdio Stdio
+}
+
+// Validate checks the Context for correctness.
+func (c Context) Validate() error {
+	renderer, err := filepath.NewRenderer("")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.ValidateRendered(renderer); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// ValidateRendered checks the Context for correctness.
+func (c Context) ValidateRendered(renderer filepath.Renderer) error {
+	// For now we don't check anything.
+	return nil
 }
 
 // SetStdio sets the stdio this command will use. Nil values are

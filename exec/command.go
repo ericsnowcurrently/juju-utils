@@ -4,9 +4,12 @@
 package exec
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/utils/filepath"
 )
 
 // Command exposes the functionality of a command.
@@ -84,4 +87,40 @@ func (info CommandInfo) String() string {
 
 	parts := append([]string{info.Path}, info.Args[1:]...)
 	return strings.Join(parts, " ")
+}
+
+// TODO(ericsnow) Add Render(shell.Renderer) (string, error)
+// It would incorporate at least the env.
+
+// Validate ensures that the info is correct.
+func (info CommandInfo) Validate() error {
+	renderer, err := filepath.NewRenderer("")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := info.ValidateRendered(renderer); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// ValidateRendered ensures that the info is correct. The renderer
+// is used to check Path and the context.
+func (info CommandInfo) ValidateRendered(renderer filepath.Renderer) error {
+	if info.Path == "" {
+		return errors.NewNotValid(nil, "missing command Path")
+	}
+	if len(info.Args) == 0 {
+		return errors.NewNotValid(nil, "missing command Args (including command name)")
+	}
+	if renderer.Base(info.Path) != info.Args[0] {
+		msg := fmt.Sprintf("command name mismatch: %q !-> %q", info.Path, info.Args[0])
+		return errors.NewNotValid(nil, msg)
+	}
+
+	if err := info.Context.ValidateRendered(renderer); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

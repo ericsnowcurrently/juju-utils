@@ -136,3 +136,84 @@ func (s *CommandInfoSuite) TestStringNoArgs(c *gc.C) {
 
 	c.Check(str, gc.Equals, "/x/y/z/spam")
 }
+
+func (s *CommandInfoSuite) TestValidateOkay(c *gc.C) {
+	renderer := s.newStubRenderer()
+	renderer.ReturnBase = "/x/y/z/spam"
+	info := exec.NewCommandInfo("/x/y/z/spam", "--ham", "eggs")
+
+	err := info.ValidateRendered(renderer)
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *CommandInfoSuite) TestValidateFull(c *gc.C) {
+	renderer := s.newStubRenderer()
+	renderer.ReturnBase = "spam"
+	info := exec.CommandInfo{
+		Path: "/x/y/z/spam",
+		Args: []string{
+			"spam",
+			"--ham",
+			"eggs",
+		},
+		Context: exec.Context{
+			Env: []string{"X=y"},
+			Dir: "/x/y/z",
+			Stdio: exec.Stdio{
+				In:  &bytes.Buffer{},
+				Out: &bytes.Buffer{},
+				Err: &bytes.Buffer{},
+			},
+		},
+	}
+
+	err := info.ValidateRendered(renderer)
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *CommandInfoSuite) TestValidateMissingPath(c *gc.C) {
+	info := exec.CommandInfo{
+		Args: []string{
+			"spam",
+			"--ham",
+			"eggs",
+		},
+	}
+
+	err := info.ValidateRendered(nil)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *CommandInfoSuite) TestValidateMissingArgs(c *gc.C) {
+	info := exec.CommandInfo{
+		Path: "/x/y/z/spam",
+	}
+
+	err := info.ValidateRendered(nil)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *CommandInfoSuite) TestValidateCommandNameMismatch(c *gc.C) {
+	renderer := s.newStubRenderer()
+	renderer.ReturnBase = "foo"
+	info := exec.CommandInfo{
+		Path: "/x/y/z/foo",
+		Args: []string{
+			"spam",
+			"--ham",
+			"eggs",
+		},
+	}
+
+	err := info.ValidateRendered(renderer)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *CommandInfoSuite) TestValidateBadContext(c *gc.C) {
+	c.Skip("for now there are no bad contexts")
+}

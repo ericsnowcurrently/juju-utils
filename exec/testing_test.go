@@ -6,7 +6,7 @@ package exec_test
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
+	osfilepath "path/filepath"
 	"strings"
 
 	"github.com/juju/testing"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/exec/exectesting"
+	"github.com/juju/utils/filepath"
 )
 
 type BaseSuite struct {
@@ -29,7 +30,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) AddDir(c *gc.C, path ...string) string {
 	root := c.MkDir()
-	dirname := filepath.Join(append([]string{root}, path...)...)
+	dirname := osfilepath.Join(append([]string{root}, path...)...)
 
 	err := os.MkdirAll(dirname, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,7 +52,7 @@ func (s *BaseSuite) AddBinDir(c *gc.C, path ...string) string {
 
 func (s *BaseSuite) AddScript(c *gc.C, name, script string) string {
 	binDir := s.AddBinDir(c)
-	filename := filepath.Join(binDir, name)
+	filename := osfilepath.Join(binDir, name)
 
 	err := ioutil.WriteFile(filename, []byte(script), 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,4 +86,22 @@ func (s *BaseSuite) newStdioCommand(input *string, output ...string) exec.Comman
 		return origErr
 	})
 
+}
+
+func (s *BaseSuite) newStubRenderer() *stubRenderer {
+	return &stubRenderer{stub: s.Stub}
+}
+
+type stubRenderer struct {
+	filepath.Renderer
+	stub *testing.Stub
+
+	ReturnBase string
+}
+
+func (s *stubRenderer) Base(path string) string {
+	s.stub.AddCall("Base", path)
+	s.stub.PopNoErr()
+
+	return s.ReturnBase
 }
