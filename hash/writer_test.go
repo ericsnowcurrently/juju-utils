@@ -92,24 +92,6 @@ func (s *WriterSuite) TestHashingWriterBase64Sum(c *gc.C) {
 	c.Check(b64sum, gc.Equals, "c3BhbQ==")
 }
 
-func (s *WriterSuite) TestHashingWriterHash(c *gc.C) {
-	file := fakeFile{}
-	hasher := fakeHasher{sum: []byte("spam")}
-	w := hash.NewHashingWriter(&file, &hasher)
-	b64hash := w.Hash()
-
-	c.Check(b64hash, gc.Equals, "c3BhbQ==")
-}
-
-func (s *WriterSuite) TestHashingWriterRawHash(c *gc.C) {
-	file := fakeFile{}
-	hasher := fakeHasher{sum: []byte("spam")}
-	w := hash.NewHashingWriter(&file, &hasher)
-	rawhash := w.RawHash()
-
-	c.Check(rawhash, gc.Equals, "7370616d")
-}
-
 type fakeFile struct {
 	written []byte
 	err     error
