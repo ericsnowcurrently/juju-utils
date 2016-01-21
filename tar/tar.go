@@ -9,7 +9,6 @@ package tar
 import (
 	"archive/tar"
 	"crypto/sha1"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -77,22 +76,22 @@ func UntarFiles(tarFile io.Reader, outputFolder string) error {
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("failed while reading tar header: %v", err)
+			return errors.Annotate(err, "failed while reading tar header")
 		}
 		fullPath := filepath.Join(outputFolder, hdr.Name)
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err = os.MkdirAll(fullPath, os.FileMode(hdr.Mode)); err != nil {
-				return fmt.Errorf("cannot extract directory %q: %v", fullPath, err)
+				return errors.Annotatef(err, "cannot extract directory %q", fullPath)
 			}
 		case tar.TypeSymlink:
 			if err = symlink.New(hdr.Linkname, fullPath); err != nil {
-				return fmt.Errorf("cannot extract symlink %q to %q: %v", hdr.Linkname, fullPath, err)
+				return errors.Annotatef(err, "cannot extract symlink %q to %q", hdr.Linkname, fullPath)
 			}
 			continue
 		case tar.TypeReg, tar.TypeRegA:
 			if err = createAndFill(fullPath, hdr.Mode, tr); err != nil {
-				return fmt.Errorf("cannot extract file %q: %v", fullPath, err)
+				return errors.Annotatef(err, "cannot extract file %q", fullPath)
 			}
 		}
 	}
@@ -103,15 +102,15 @@ func createAndFill(filePath string, mode int64, content io.Reader) error {
 	fh, err := os.Create(filePath)
 	defer fh.Close()
 	if err != nil {
-		return fmt.Errorf("some of the tar contents cannot be written to disk: %v", err)
+		return errors.Annotate(err, "some of the tar contents cannot be written to disk")
 	}
 	_, err = io.Copy(fh, content)
 	if err != nil {
-		return fmt.Errorf("failed while reading tar contents: %v", err)
+		return errors.Annotate(err, "failed while reading tar contents")
 	}
 	err = os.Chmod(fh.Name(), os.FileMode(mode))
 	if err != nil {
-		return fmt.Errorf("cannot set proper mode on file %q: %v", filePath, err)
+		return errors.Annotatef(err, "cannot set proper mode on file %q", filePath)
 	}
 	return nil
 }
