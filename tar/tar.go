@@ -8,6 +8,7 @@ package tar
 
 import (
 	"archive/tar"
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"os"
@@ -49,15 +50,20 @@ func FindFile(tarFile io.Reader, filename string) (*tar.Header, io.Reader, error
 // We use a base64 encoded sha1 hash, because this is the hash
 // used by RFC 3230 Digest headers in http responses
 func TarFiles(fileList []string, target io.Writer, strip string) (shaSum string, err error) {
-	proxy := hash.NewSHA1Proxy(target)
-	ar := Archiver{fileList, strip}
+	h := sha1.New()
+	proxy := io.MultiWriter(target, h)
+	ar := Archiver{
+		Files:       fileList,
+		StripPrefix: strip,
+	}
 
 	err = ar.Write(proxy)
 	if err != nil {
 		return "", err
 	}
 
-	return proxy.Base64Sum(), nil
+	fp := hash.NewValidFingerprint(h)
+	return fp.Base64(), nil
 }
 
 // TODO(ericsnow) Move createAndFill down (below UntarFiles).
