@@ -66,25 +66,6 @@ func TarFiles(fileList []string, target io.Writer, strip string) (shaSum string,
 	return fp.Base64(), nil
 }
 
-// TODO(ericsnow) Move createAndFill down (below UntarFiles).
-
-func createAndFill(filePath string, mode int64, content io.Reader) error {
-	fh, err := os.Create(filePath)
-	defer fh.Close()
-	if err != nil {
-		return fmt.Errorf("some of the tar contents cannot be written to disk: %v", err)
-	}
-	_, err = io.Copy(fh, content)
-	if err != nil {
-		return fmt.Errorf("failed while reading tar contents: %v", err)
-	}
-	err = os.Chmod(fh.Name(), os.FileMode(mode))
-	if err != nil {
-		return fmt.Errorf("cannot set proper mode on file %q: %v", filePath, err)
-	}
-	return nil
-}
-
 // UntarFiles will extract the contents of tarFile using
 // outputFolder as root
 func UntarFiles(tarFile io.Reader, outputFolder string) error {
@@ -114,6 +95,23 @@ func UntarFiles(tarFile io.Reader, outputFolder string) error {
 				return fmt.Errorf("cannot extract file %q: %v", fullPath, err)
 			}
 		}
+	}
+	return nil
+}
+
+func createAndFill(filePath string, mode int64, content io.Reader) error {
+	fh, err := os.Create(filePath)
+	defer fh.Close()
+	if err != nil {
+		return fmt.Errorf("some of the tar contents cannot be written to disk: %v", err)
+	}
+	_, err = io.Copy(fh, content)
+	if err != nil {
+		return fmt.Errorf("failed while reading tar contents: %v", err)
+	}
+	err = os.Chmod(fh.Name(), os.FileMode(mode))
+	if err != nil {
+		return fmt.Errorf("cannot set proper mode on file %q: %v", filePath, err)
 	}
 	return nil
 }
