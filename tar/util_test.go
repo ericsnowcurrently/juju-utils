@@ -20,7 +20,7 @@ import (
 func shaSumFile(c *gc.C, fileToSum io.Reader) string {
 	shahash := sha1.New()
 	_, err := io.Copy(shahash, fileToSum)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
 }
 
@@ -136,10 +136,10 @@ func (dw *testDirWalker) readTar(c *gc.C, reader io.Reader) {
 			// end of tar archive
 			break
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		data, err := ioutil.ReadAll(tr)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		dw.contents[hdr.Name] = string(data)
 	}
