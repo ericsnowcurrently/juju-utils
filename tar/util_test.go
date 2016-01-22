@@ -5,6 +5,8 @@ package tar_test
 
 import (
 	"archive/tar"
+	"crypto/sha1"
+	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,6 +16,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
+
+func shaSumFile(c *gc.C, fileToSum io.Reader) string {
+	shahash := sha1.New()
+	_, err := io.Copy(shahash, fileToSum)
+	c.Assert(err, gc.IsNil)
+	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
+}
 
 type expectedTarContents []expectedTarContent
 
@@ -36,9 +45,50 @@ func (ec expectedTarContents) check(c *gc.C, rootDir string, contents map[string
 	}
 }
 
+func (ec expectedTarContents) create(c *gc.C, cwd string) []string {
+	c.Logf("creating in %q", cwd)
+	var topLevel []string
+	for i, expectedContent := range ec {
+		c.Logf("(%d) creating %q", i, expectedContent.Name)
+
+		var source string
+		if strings.Contains(expectedContent.Name, "Link") {
+			source = filepath.Join(cwd, ec[i-1].Name)
+			c.Logf("  symlink to %q", source)
+		}
+		path := expectedContent.create(c, cwd, source)
+		if !strings.Contains(expectedContent.Name, "/") {
+			topLevel = append(topLevel, path)
+		}
+	}
+	return topLevel
+}
+
 type expectedTarContent struct {
 	Name string
 	Body string
+}
+
+func (ec expectedTarContent) create(c *gc.C, cwd, source string) string {
+	path := filepath.Join(cwd, ec.Name)
+	err := os.MkdirAll(filepath.Dir(path), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	switch {
+	case source != "":
+		err := os.Symlink(source, path)
+		c.Assert(err, jc.ErrorIsNil)
+	case ec.Body != "":
+		file, err := os.Create(path)
+		c.Assert(err, jc.ErrorIsNil)
+		defer file.Close()
+		_, err = file.WriteString(ec.Body)
+		c.Assert(err, jc.ErrorIsNil)
+	default:
+		err := os.MkdirAll(path, 0755)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	return path
 }
 
 func (ec expectedTarContent) checkExists(c *gc.C, rootDir string) (string, bool) {
