@@ -181,10 +181,3 @@ var testExpectedTarContents = expectedTarContents{
 	{"TarFile1", "TarFile1"},
 	{"TarFile2", "TarFile2"},
 }
-
-func checkFilesWhereUntarred(c *gc.C, expectedContents expectedTarContents, tarOutputFolder string) {
-	dw := newTestDirWalker(c, tarOutputFolder)
-	dw.walk(c)
-
-	expectedContents.check(c, tarOutputFolder, dw.contents)
-}
